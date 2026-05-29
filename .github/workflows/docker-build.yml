@@ -1,21 +1,51 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main] # тригер: push до main
+    branches: [main]
   pull_request:
-    branches: [main] # і на PR (тільки build, без push)
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }} # username/repo-name
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run backend tests
+        run: docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from backend-test backend-test db
+
+      - name: Run frontend tests
+        run: docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from frontend-test frontend-test
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # потрібно для ghcr.io
+      packages: write
+    
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+            target: runtime
+            build-args: ""
+          - service: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            target: prod
+            build-args: "VITE_API_URL=http://backend:5000"
 
     steps:
       - name: Checkout code
@@ -30,24 +60,31 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # авто!
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository owner
+        id: owner
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.owner }}/my-fullstack-${{ matrix.service }}
           tags: |
-            type=sha,prefix=,format=short                 # git SHA
-            type=ref,event=branch                         # branch name
-            type=semver,pattern={{version}}               # з Git tags
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          build-args: ${{ matrix.build-args }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha # GitHub Actions cache!
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.vite
+.parcel-cache
+npm-debug.log*
+.DS_Store
+.git
+.gitignore
+.env
+Dockerfile*
+docker-compose*.yml
+*.log
+coverage

@@ -1,0 +1,43 @@
+# Node
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Vite / build
+dist/
+build/
+.vite/
+.parcel-cache/
+out/
+coverage/
+.cache/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Docker / Compose watch
+compose-watch.log
+*.compose-watch.log
+.compose-watch
+docker-compose.poll.yml
+
+# Environment local overrides
+.env
+.env.local
+.env.*.local
+docker-compose.local.yml
+.env.*.local

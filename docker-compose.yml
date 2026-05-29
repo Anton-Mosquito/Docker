@@ -1,0 +1,82 @@
+# Простий старт — без своїх Dockerfile
+services:
+  web:
+    image: nginx:alpine
+    ports: ["8080:80"]
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: secret
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    networks: [backend-net]
+    restart: unless-stopped
+
+  adminer: # Web UI для БД
+    image: adminer
+    ports: ["8081:8080"]
+    restart: unless-stopped
+
+  backend:
+    image: my-fullstack-backend:prod
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - frontend-net
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./backend/package.json
+    restart: unless-stopped
+
+  frontend:
+    image: my-fullstack-frontend:prod
+    build:
+      context: ./frontend
+      target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks: [frontend-net]
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./frontend/package.json
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+
+networks:
+  frontend-net:
+  backend-net:

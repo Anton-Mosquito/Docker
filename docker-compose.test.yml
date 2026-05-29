@@ -1,0 +1,49 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: secret
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    networks: [backend-net]
+    restart: 'no'
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [backend-net]
+    restart: 'no'
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: test
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://backend:5000}
+    networks: [frontend-net]
+    restart: 'no'
+
+volumes:
+  postgres-data:
+
+networks:
+  frontend-net:
+  backend-net:
+
+# Usage (CI):
+# docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from backend-test
+# This will run the tests in the specified service and return its exit code to the shell.

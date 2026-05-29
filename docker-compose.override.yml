@@ -1,0 +1,27 @@
+services:
+  frontend:
+    image: my-fullstack-frontend:dev
+    build:
+      target: dev
+    ports: ["3000:3000"]
+    volumes:
+      - ./frontend/src:/app/src
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+
+  backend:
+    image: my-fullstack-backend:dev
+    ports:
+      - "5001:5000"
+      - "9229:9229" # debug port!
+    volumes:
+      - ./backend:/app # hot reload for backend
+      - /app/node_modules
+
+  mailhog: # only in dev!
+    image: mailhog/mailhog:latest
+    ports: ["8025:8025"]
+    profiles:
+      - dev

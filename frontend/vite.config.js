@@ -1,16 +1,21 @@
-// frontend/vite.config.js — proxy до API
-export default {
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
   server: {
-    host: "0.0.0.0", // Обов'язково для Docker!
+    host: "0.0.0.0",
     port: 3000,
     hmr: {
-      port: 3000, // HMR через той самий порт
+      port: 3000,
     },
     proxy: {
       "/api": {
-        target: "http://backend:5000", // ім'я сервісу!
+        target: "http://backend:5000",
         changeOrigin: true,
       },
     },
   },
-};
+});

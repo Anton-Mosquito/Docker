@@ -32,7 +32,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     strategy:
       matrix:
         include:
@@ -100,12 +100,13 @@ jobs:
           severity: 'CRITICAL'
 
       - name: Build and push
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           build-args: ${{ matrix.build-args }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.service }}

@@ -1,5 +1,6 @@
 # dev stage
-FROM node:18-alpine AS dev
+FROM node:20-alpine AS dev
+RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
@@ -10,7 +11,8 @@ EXPOSE 3000
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
+RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
@@ -20,7 +22,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:18-alpine AS test
+FROM node:20-alpine AS test
+RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
@@ -32,6 +35,7 @@ COPY . .
 CMD ["npm", "test"]
 
 FROM nginx:alpine AS prod
+RUN apk upgrade --no-cache
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 

@@ -1,11 +1,13 @@
 # backend/Dockerfile (multi-stage: install production deps only)
-FROM node:18-alpine AS deps
+FROM node:20-alpine AS deps
+RUN apk upgrade --no-cache
 WORKDIR /app
 COPY package*.json ./
 # install only production dependencies to keep final image small
 RUN npm ci --production
 
-FROM node:18-alpine AS runtime
+FROM node:20-alpine AS runtime
+RUN apk upgrade --no-cache
 WORKDIR /app
 # copy production node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -15,7 +17,8 @@ EXPOSE 5000
 CMD ["node", "--inspect=0.0.0.0:9229", "index.js"]
 
 # test stage for CI
-FROM node:18-alpine AS test
+FROM node:20-alpine AS test
+RUN apk upgrade --no-cache
 WORKDIR /app
 COPY package*.json ./
 # install dev + prod deps for tests

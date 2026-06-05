@@ -3,10 +3,18 @@ services:
   frontend:
     ports: ["80:80"]
     restart: always
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx   # nginx потребує кешу
+      - /var/run           # nginx.pid
 
   backend:
     ports: ["5001:5000"]
     restart: always
+    read_only: true
+    tmpfs:
+      - /tmp               # Node.js іноді пише у /tmp
 
 # Launch prod config:
 # docker compose -f docker-compose.yml -f docker-compose.prod.yml up

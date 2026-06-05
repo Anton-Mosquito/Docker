@@ -82,19 +82,19 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'local-build-${{ matrix.service }}:latest'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          exit-code: '1'
+          image-ref: "local-build-${{ matrix.service }}:latest"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          exit-code: "1"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
       - name: Upload scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always() # Upload even if vulnerabilities are found
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: "trivy-results.sarif"
 
       - name: Build and push
         if: github.event_name != 'pull_request'

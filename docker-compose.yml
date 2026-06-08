@@ -1,4 +1,3 @@
-# Простий старт — без своїх Dockerfile
 services:
   web:
     image: nginx:alpine
@@ -21,13 +20,13 @@ services:
     networks: [backend-net]
     restart: unless-stopped
 
-  adminer: # Web UI для БД
+  adminer:
     image: adminer
     ports: ["8081:8080"]
     restart: unless-stopped
 
   backend:
-    image: my-fullstack-backend:prod
+    image: backend:prod
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -50,7 +49,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: my-fullstack-frontend:prod
+    image: frontend:prod
     build:
       context: ./frontend
       target: prod

@@ -37,7 +37,7 @@ CMD ["npm", "test"]
 FROM nginx:alpine AS prod
 RUN apk upgrade --no-cache
 # Replace default config with custom one
-COPY ../nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,20 +1,65 @@
-#  production overrides
+# Production overrides for local and cloud deployments
 services:
+  # Remove dev services from base compose
+  web:
+    image: nginx:alpine
+    profiles: ["skip-web"]
+  adminer:
+    profiles: ["skip-adminer"]
+
   frontend:
+    # For cloud: use image from registry
+    # For local: build from Dockerfile
+    image: ${REGISTRY:-docker.io}/${IMAGE_OWNER:-anton0886}/my-fullstack-frontend:${FRONTEND_TAG:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
     ports: ["80:80"]
+    environment:
+      - NODE_ENV=production
+      - BACKEND_HOST=${BACKEND_HOST:-backend}
+      - BACKEND_PORT=${BACKEND_PORT:-5000}
+    depends_on:
+      - backend
     restart: always
     read_only: true
     tmpfs:
       - /tmp
-      - /var/cache/nginx   # nginx потребує кешу
-      - /var/run           # nginx.pid
+      - /var/cache/nginx
+      - /var/run
 
   backend:
-    ports: ["5001:5000"]
+    # For cloud: use image from registry
+    # For local: build from Dockerfile
+    image: ${REGISTRY:-docker.io}/${IMAGE_OWNER:-anton0886}/my-fullstack-backend:${BACKEND_TAG:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    ports: ["${BACKEND_PORT:-5000}:5000"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:secret@db:5432/postgres}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: always
     read_only: true
     tmpfs:
-      - /tmp               # Node.js іноді пише у /tmp
+      - /tmp
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
 
 # Launch prod config:
-# docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# Local: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+# Cloud: docker compose -f docker-compose.yml -f docker-compose.prod.yml up

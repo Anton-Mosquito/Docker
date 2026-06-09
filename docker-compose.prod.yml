@@ -1,7 +1,32 @@
 #  production overrides
 services:
+  nginx:
+    image: ghcr.io/anton-mosquito/nginx:${VERSION:-latest}
+    ports: ["80:80", "443:443"]
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5" # макс 50% одного ядра
+          memory: 128M # макс 128MB RAM
+        reservations:
+          cpus: "0.1" # гарантовано 10%
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m" # ротація: макс 10MB
+        max-file: "3" # зберігати 3 файли
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   frontend:
     ports: ["80:80"]
+    environment:
+      - NODE_ENV=production
     restart: always
     read_only: true
     tmpfs:
@@ -13,11 +38,30 @@ services:
     ports: ["${BACKEND_HOST_PORT:-5000}:${BACKEND_PORT:-5000}"]
     environment:
       - PORT=${BACKEND_PORT:-5000}
+      - NODE_ENV=production
     restart: always
     read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
     tmpfs:
       - /tmp # Node.js іноді пише у /tmp
+    security_opt:
+      - no-new-privileges:true # заборона підвищення прав
 
+  db:
+    restart: always
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
 # Launch prod config:
 # docker compose -f docker-compose.yml -f docker-compose.prod.yml up

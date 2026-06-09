@@ -41,6 +41,12 @@ services:
             - node_modules/
         - action: rebuild
           path: ./backend/package.json
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s # перевіряти кожні 30с
+      timeout: 10s # timeout на відповідь
+      retries: 3 # 3 провали → unhealthy
+      start_period: 20s # не враховувати перші 20с
     restart: unless-stopped
 
   frontend:
@@ -56,7 +62,10 @@ services:
     environment:
       - NODE_ENV=production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     networks: [frontend-net]
     develop:
       watch:

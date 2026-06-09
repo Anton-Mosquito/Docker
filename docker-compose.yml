@@ -1,9 +1,4 @@
 services:
-  web:
-    image: nginx:alpine
-    ports: ["8080:80"]
-    restart: unless-stopped
-
   db:
     image: postgres:15-alpine
     environment:
@@ -56,6 +51,8 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
       dockerfile: Dockerfile
+    ports:
+      - "8080:80"
     environment:
       - NODE_ENV=production
     depends_on:

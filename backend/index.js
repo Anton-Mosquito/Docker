@@ -15,4 +15,5 @@ app.get("/api/items", (req, res) => {
   ]);
 });
 
-app.listen(5000, () => console.log("API on :5000"));
+const port = parseInt(process.env.PORT, 10) || 5000;
+app.listen(port, () => console.log(`API on :${port}`));

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://backend:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export default function App() {
   const [items, setItems] = useState([]);
   useEffect(() => {
-    fetch(`${API_BASE}/api/items`)
+    fetch(`${API_BASE}/items`)
       .then((r) => r.json())
       .then(setItems)
       .catch(() => setItems([]));
@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "sans-serif", padding: 16 }}>
-      <h1>Vite env: VITE_API_URL</h1>
+      <h1>Vite env: API_BASE</h1>
       <p>{API_BASE}</p>
       <h2>Items from API</h2>
       <ul>
@@ -25,11 +25,3 @@ export default function App() {
     </div>
   );
 }
-
-// WATCH_POLL_TEST_1779956930
-
-// WATCH_POLL_TEST_1779956930
-
-// WATCH_POLL_SIMPLE_1779957125
-
-// WATCH_POLL_SIMPLE_1779957125

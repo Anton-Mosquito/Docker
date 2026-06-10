@@ -19,7 +19,7 @@ USER node
 CMD ["npm", "test"]
 
 FROM node:20-alpine AS runtime
-RUN apk upgrade --no-cache && npm install -g npm@latest
+RUN apk upgrade --no-cache
 WORKDIR /app
 # copy production node_modules from deps stage
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules

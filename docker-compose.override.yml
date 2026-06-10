@@ -43,3 +43,8 @@ services:
     restart: unless-stopped
     profiles:
       - dev
+
+  adminer:
+    ports:
+      - "8081:8080"
+

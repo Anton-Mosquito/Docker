@@ -1,5 +1,7 @@
 # dev stage
 FROM node:20-alpine AS dev
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
@@ -13,6 +15,8 @@ EXPOSE 3000
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 FROM node:20-alpine AS builder
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
@@ -26,6 +30,8 @@ RUN chown -R node:node /app
 USER node
 
 FROM node:20-alpine AS test
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 WORKDIR /app
 ARG VITE_API_URL
@@ -40,6 +46,8 @@ USER node
 CMD ["npm", "test"]
 
 FROM nginx:alpine AS prod
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 # Replace default config with custom one
 COPY nginx/nginx.conf /etc/nginx/nginx.conf

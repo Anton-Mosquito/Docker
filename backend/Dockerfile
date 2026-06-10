@@ -1,5 +1,7 @@
 # backend/Dockerfile (multi-stage: install production deps only)
 FROM node:20-alpine AS deps
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache && npm install -g npm@latest
 WORKDIR /app
 COPY --chown=node:node package*.json ./
@@ -8,6 +10,8 @@ RUN npm ci --production
 
 # test stage for CI
 FROM node:20-alpine AS test
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache && npm install -g npm@latest
 WORKDIR /app
 COPY --chown=node:node package*.json ./
@@ -19,6 +23,8 @@ USER node
 CMD ["npm", "test"]
 
 FROM node:20-alpine AS runtime
+ARG TARGETPLATFORM
+RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 WORKDIR /app
 # copy production node_modules from deps stage

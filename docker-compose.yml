@@ -58,7 +58,7 @@ services:
         VITE_API_URL: ${VITE_API_URL}
       dockerfile: Dockerfile
     ports:
-      - "8080:80"
+      - "8080:8080"
     environment:
       - NODE_ENV=production
     depends_on:

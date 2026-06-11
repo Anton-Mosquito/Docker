@@ -29,17 +29,19 @@ jobs:
               - 'apps/backend/**'
               - 'packages/shared/**'
               - 'docker/backend.Dockerfile'
-      
+
       - id: set-matrix
         run: |
           MATRIX="[]"
           if [[ "${{ steps.filter.outputs.backend }}" == "true" ]]; then
-            MATRIX=$(echo $MATRIX | jq '. += [{"service": "backend", "context": ".", "dockerfile": "docker/backend.Dockerfile", "target": "runtime", "build-args": ""}]')
+            MATRIX=$(echo $MATRIX | jq -c '. += [{"service": "backend", "context": ".", "dockerfile": "docker/backend.Dockerfile", "target": "runtime", "build-args": ""}]')
           fi
           if [[ "${{ steps.filter.outputs.frontend }}" == "true" ]]; then
-            MATRIX=$(echo $MATRIX | jq '. += [{"service": "frontend", "context": ".", "dockerfile": "docker/frontend.Dockerfile", "target": "prod", "build-args": "VITE_API_URL=http://backend:5000"}]')
+            MATRIX=$(echo $MATRIX | jq -c '. += [{"service": "frontend", "context": ".", "dockerfile": "docker/frontend.Dockerfile", "target": "prod", "build-args": "VITE_API_URL=http://backend:5000"}]')
           fi
-          echo "matrix={\"include\":$MATRIX}" >> $GITHUB_OUTPUT
+
+          FINAL_JSON=$(jq -c -n --argjson inc "$MATRIX" '{include: $inc}')
+          echo "matrix=$FINAL_JSON" >> $GITHUB_OUTPUT
 
   # 1. CI (Lint & Test via Reusable Workflow)
   ci:
@@ -63,7 +65,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU            # емулятор для cross-compile
+      - name: Set up QEMU # емулятор для cross-compile
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx

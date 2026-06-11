@@ -10,13 +10,46 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # 0. Визначаємо, що саме змінилося, і формуємо матрицю
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/frontend/**'
+              - 'packages/shared/**'
+              - 'docker/frontend.Dockerfile'
+            backend:
+              - 'apps/backend/**'
+              - 'packages/shared/**'
+              - 'docker/backend.Dockerfile'
+      
+      - id: set-matrix
+        run: |
+          MATRIX="[]"
+          if [[ "${{ steps.filter.outputs.backend }}" == "true" ]]; then
+            MATRIX=$(echo $MATRIX | jq '. += [{"service": "backend", "context": ".", "dockerfile": "docker/backend.Dockerfile", "target": "runtime", "build-args": ""}]')
+          fi
+          if [[ "${{ steps.filter.outputs.frontend }}" == "true" ]]; then
+            MATRIX=$(echo $MATRIX | jq '. += [{"service": "frontend", "context": ".", "dockerfile": "docker/frontend.Dockerfile", "target": "prod", "build-args": "VITE_API_URL=http://backend:5000"}]')
+          fi
+          echo "matrix={\"include\":$MATRIX}" >> $GITHUB_OUTPUT
+
   # 1. CI (Lint & Test via Reusable Workflow)
   ci:
+    needs: changes
     uses: ./.github/workflows/ci.yml
 
   # 2. Docker Build, Scan & Push
   docker-build:
-    needs: ci
+    needs: [ci, changes]
+    if: fromJSON(needs.changes.outputs.matrix).include[0] != null
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,18 +57,7 @@ jobs:
       security-events: write
 
     strategy:
-      matrix:
-        include:
-          - service: backend
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-            target: runtime
-            build-args: ""
-          - service: frontend
-            context: ./frontend
-            dockerfile: ./frontend/Dockerfile
-            target: prod
-            build-args: "VITE_API_URL=http://backend:5000"
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
       - name: Checkout code

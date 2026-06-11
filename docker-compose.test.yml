@@ -17,8 +17,8 @@ services:
 
   backend-test:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend.Dockerfile
       target: test
     depends_on:
       db:
@@ -28,8 +28,8 @@ services:
 
   frontend-test:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/frontend.Dockerfile
       target: test
       args:
         VITE_API_URL: ${VITE_API_URL:-http://backend:5000}

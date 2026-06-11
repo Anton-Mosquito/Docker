@@ -1,0 +1,13 @@
+{
+  "name": "@my-monorepo/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities, types, and helpers",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "scripts": {
+    "test": "echo \"No tests configured\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

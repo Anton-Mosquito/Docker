@@ -1,7 +1,12 @@
 {
-  "name": "my-fullstack",
+  "name": "my-monorepo",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend",
+    "packages/*"
+  ],
   "scripts": {
     "compose:dev": "docker compose --env-file .env.development --profile dev up --build",
     "compose:dev:down": "docker compose --env-file .env.development --profile dev down",

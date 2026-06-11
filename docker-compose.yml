@@ -28,8 +28,9 @@ services:
   backend:
     image: backend:prod
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: runtime
     depends_on:
       db:
         condition: service_healthy
@@ -39,13 +40,13 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./backend
+          path: ./apps/backend
           target: /app
           initial_sync: true
           ignore:
             - node_modules/
         - action: rebuild
-          path: ./backend/package.json
+          path: ./apps/backend/package.json
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
       interval: 30s # перевіряти кожні 30с
@@ -57,11 +58,11 @@ services:
   frontend:
     image: frontend:prod
     build:
-      context: ./frontend
+      context: .
+      dockerfile: docker/frontend.Dockerfile
       target: prod
       args:
         VITE_API_URL: ${VITE_API_URL}
-      dockerfile: Dockerfile
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -79,13 +80,13 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./frontend
+          path: ./apps/frontend
           target: /app
           initial_sync: true
           ignore:
             - node_modules/
         - action: rebuild
-          path: ./frontend/package.json
+          path: ./apps/frontend/package.json
     restart: unless-stopped
 
 volumes:

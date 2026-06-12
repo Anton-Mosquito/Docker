@@ -12,6 +12,9 @@
     "compose:dev:down": "docker compose --env-file .env.development --profile dev down",
     "compose:prod": "docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
     "compose:prod:down": "docker compose --env-file .env.production --profile prod down",
-    "compose:local": "docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build"
+    "compose:local": "docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build",
+    "monitor": "docker compose --profile monitoring up -d",
+    "seed": "docker compose --profile seed run --rm seeder",
+    "tools": "docker compose --profile tools up -d"
   }
 }

@@ -23,7 +23,7 @@ RUN npm ci
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /app/apps/frontend
+WORKDIR /apps/frontend
 RUN chown -R node:node /app
 USER node
 EXPOSE 3000
@@ -48,7 +48,7 @@ RUN npm ci
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /app/apps/frontend
+WORKDIR /apps/frontend
 RUN npm run build
 RUN chown -R node:node /app
 USER node
@@ -72,7 +72,7 @@ RUN npm ci
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /app/apps/frontend
+WORKDIR /apps/frontend
 RUN chown -R node:node /app
 USER node
 # default command: runs tests and exits with code 0/1
@@ -85,7 +85,7 @@ RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
 # Replace default config with custom one
 COPY apps/frontend/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
+COPY --from=builder /apps/frontend/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

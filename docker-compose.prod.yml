@@ -1,4 +1,4 @@
-#  production overrides
+# production overrides
 services:
   nginx:
     image: ghcr.io/anton-mosquito/nginx:${VERSION:-latest}
@@ -14,9 +14,7 @@ services:
           memory: 64M
     logging:
       driver: json-file
-      options:
-        max-size: "10m" # ротація: макс 10MB
-        max-file: "3" # зберігати 3 файли
+      options: { max-size: "10m", max-file: "3" }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/health"]
       interval: 30s
@@ -26,7 +24,6 @@ services:
   frontend:
     environment:
       - NODE_ENV=production
-    restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp
@@ -37,17 +34,11 @@ services:
         limits:
           cpus: "0.5"
           memory: 128M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   backend:
     environment:
       - PORT=${BACKEND_PORT:-5000}
       - NODE_ENV=production
-    restart: unless-stopped
     read_only: true
     deploy:
       resources:
@@ -56,27 +47,15 @@ services:
           memory: 512M
     logging:
       driver: json-file
-      options: { max-size: "20m", max-file: "5" }
+      options: { max-size: "20m", max-file: "5" } # Специфічний override для бекенду
     tmpfs:
       - /tmp # Node.js іноді пише у /tmp
     security_opt:
       - no-new-privileges:true # заборона підвищення прав
 
   db:
-    restart: unless-stopped
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
     deploy:
       resources:
         limits:
           cpus: "1.5"
           memory: 1G
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-
-# Launch prod config:
-# docker compose -f docker-compose.yml -f docker-compose.prod.yml up

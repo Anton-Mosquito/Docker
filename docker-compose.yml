@@ -1,31 +1,31 @@
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-healthcheck-defaults: &healthcheck
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
 services:
   db:
+    <<: *common
     image: postgres:15-alpine
-    env_file:
-      - .env
+    env_file: [.env]
     healthcheck:
+      <<: *healthcheck
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
-      timeout: 5s
-      retries: 5
       start_period: 5s
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - postgres-data:/var/lib/postgresql/data
     networks: [backend-net]
-    restart: unless-stopped
-
-  adminer:
-    image: adminer
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
 
   backend:
+    <<: *common
     image: backend:prod
     build:
       context: .
@@ -34,28 +34,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - backend-net
-      - frontend-net
+    networks: [backend-net, frontend-net]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      timeout: 10s
+      start_period: 20s
     develop:
       watch:
         - action: sync
           path: ./apps/backend
           target: /app
           initial_sync: true
-          ignore:
-            - node_modules/
+          ignore: [node_modules/]
         - action: rebuild
           path: ./apps/backend/package.json
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
-      interval: 30s # перевіряти кожні 30с
-      timeout: 10s # timeout на відповідь
-      retries: 3 # 3 провали → unhealthy
-      start_period: 20s # не враховувати перші 20с
-    restart: unless-stopped
 
   frontend:
+    <<: *common
     image: frontend:prod
     build:
       context: .
@@ -66,10 +62,8 @@ services:
     environment:
       - NODE_ENV=production
     healthcheck:
+      <<: *healthcheck
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
       start_period: 10s
     depends_on:
       backend:
@@ -83,14 +77,59 @@ services:
           path: ./apps/frontend
           target: /app
           initial_sync: true
-          ignore:
-            - node_modules/
+          ignore: [node_modules/]
         - action: rebuild
           path: ./apps/frontend/package.json
-    restart: unless-stopped
+
+  # --- PROFILES ---
+
+  # Profile: tools
+  pgadmin:
+    <<: *common
+    image: dpage/pgadmin4
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports: ["5050:80"]
+    networks: [backend-net]
+
+  mailhog:
+    <<: *common
+    image: mailhog/mailhog:latest
+    profiles: ["tools"]
+    ports: ["8025:8025", "1025:1025"]
+    networks: [backend-net]
+
+  # Profile: monitoring
+  portainer-ce:
+    <<: *common
+    image: portainer/portainer-ce:latest
+    profiles: ["monitoring"]
+    init: true
+    ports: ["9003:9000"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  # Profile: seed
+  seeder:
+    image: node:18-alpine
+    profiles: ["seed"]
+    restart: "no" # Перезаписуємо правило з якоря або просто не використовуємо якір тут
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [backend-net]
+    volumes:
+      - ./apps/backend:/app
+    working_dir: /app
+    command: node seed.js
+    env_file: [.env]
 
 volumes:
   postgres-data:
+  portainer_data:
 
 networks:
   frontend-net:

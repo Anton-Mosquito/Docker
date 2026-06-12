@@ -17,6 +17,10 @@ COPY packages/shared/package.json ./packages/shared/
 # install only production dependencies to keep final image small
 RUN npm ci --omit=dev
 
+# Copy source files for the runtime stage to use
+COPY apps/backend ./apps/backend
+COPY packages/shared ./packages/shared
+
 # ── test stage (CI) ───────────────────────────────────────────────────────────
 FROM node:20-alpine AS test
 ARG TARGETPLATFORM
@@ -49,8 +53,8 @@ WORKDIR /app
 # copy production node_modules from deps stage
 COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 # Also copy the app and shared code
-COPY --chown=node:node apps/backend ./apps/backend
-COPY --chown=node:node packages/shared ./packages/shared
+COPY --chown=node:node --from=deps /app/apps ./apps
+COPY --chown=node:node --from=deps /app/packages ./packages
 
 WORKDIR /app/apps/backend
 ENV NODE_ENV=production

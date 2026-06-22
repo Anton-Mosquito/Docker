@@ -37,7 +37,7 @@ services:
 
   backend:
     environment:
-      - PORT=${BACKEND_PORT:-5000}
+      - PORT=${PORT:-5000}
       - NODE_ENV=production
     read_only: true
     deploy:

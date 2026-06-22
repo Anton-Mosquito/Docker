@@ -61,3 +61,14 @@ ENV NODE_ENV=production
 EXPOSE 5000
 USER node
 CMD ["node", "index.js"]
+
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/shared/package.json ./packages/shared/
+RUN npm ci
+COPY apps/backend ./apps/backend
+COPY packages/shared ./packages/shared
+WORKDIR /app/apps/backend
+CMD ["node", "--watch", "index.js"]

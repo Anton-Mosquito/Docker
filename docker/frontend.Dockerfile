@@ -2,6 +2,14 @@
 # Build context: project root (.)
 # Usage: docker build -f docker/frontend.Dockerfile .
 
+# ── Shared rolldown binding fix ────────────────────────────────────────────────
+# Vite 6+ uses rolldown which has platform-native bindings as optional deps.
+# npm ci follows package-lock.json strictly — when the lockfile was generated on
+# macOS, it only records @rolldown/binding-darwin-arm64. Running on Linux/Docker
+# means @rolldown/binding-linux-{arch}-musl is missing (npm bug #4828).
+# Fix: after npm ci, detect arch and install the correct Linux musl binding.
+# This 2-liner is repeated in every stage that runs Vite (dev/builder/test).
+
 # ── dev stage ────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS dev
 ARG TARGETPLATFORM
@@ -16,14 +24,16 @@ COPY package.json package-lock.json ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies (npm workspaces)
+# Install + rolldown native binding fix (see comment at top)
 RUN npm ci
+RUN ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') && \
+    npm install --no-save "@rolldown/binding-linux-${ARCH}-musl" 2>/dev/null || true
 
 # Copy the rest of the code
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /apps/frontend
+WORKDIR /app/apps/frontend
 RUN chown -R node:node /app
 USER node
 EXPOSE 3000
@@ -42,16 +52,16 @@ COPY package.json package-lock.json ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/shared/package.json ./packages/shared/
 
-# install all dependencies (including dev deps like vite)
+# Install + rolldown native binding fix (see comment at top)
 RUN npm ci
+RUN ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') && \
+    npm install --no-save "@rolldown/binding-linux-${ARCH}-musl" 2>/dev/null || true
 
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /apps/frontend
+WORKDIR /app/apps/frontend
 RUN npm run build
-RUN chown -R node:node /app
-USER node
 
 # ── test stage ────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS test
@@ -66,26 +76,27 @@ COPY package.json package-lock.json ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/shared/package.json ./packages/shared/
 
-# install dev deps required for tests
+# Install + rolldown native binding fix (see comment at top)
 RUN npm ci
+RUN ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') && \
+    npm install --no-save "@rolldown/binding-linux-${ARCH}-musl" 2>/dev/null || true
 
 COPY apps/frontend ./apps/frontend
 COPY packages/shared ./packages/shared
 
-WORKDIR /apps/frontend
+WORKDIR /app/apps/frontend
 RUN chown -R node:node /app
 USER node
-# default command: runs tests and exits with code 0/1
 CMD ["npm", "test"]
 
 # ── prod stage ────────────────────────────────────────────────────────────────
+# nginx only — no Node.js, no rolldown, no fix needed
 FROM nginx:alpine AS prod
 ARG TARGETPLATFORM
 RUN echo "Building for: $TARGETPLATFORM"
 RUN apk upgrade --no-cache
-# Replace default config with custom one
 COPY apps/frontend/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY --from=builder /apps/frontend/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

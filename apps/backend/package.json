@@ -12,7 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@my-monorepo/shared": "*",
     "express": "^5.2.1",
-    "@my-monorepo/shared": "*"
+    "pg": "^8.22.0"
   }
 }

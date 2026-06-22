@@ -16,7 +16,7 @@ services:
     env_file: [.env]
     healthcheck:
       <<: *healthcheck
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       start_period: 5s
     volumes:
@@ -44,7 +44,7 @@ services:
       watch:
         - action: sync
           path: ./apps/backend
-          target: /app
+          target: /app/apps/backend
           initial_sync: true
           ignore: [node_modules/]
         - action: rebuild
@@ -75,15 +75,13 @@ services:
       watch:
         - action: sync
           path: ./apps/frontend
-          target: /app
+          target: /app/apps/frontend
           initial_sync: true
           ignore: [node_modules/]
         - action: rebuild
           path: ./apps/frontend/package.json
 
-  # --- PROFILES ---
-
-  # Profile: tools
+  # ── Profile: tools ──────────────────────────────────────────────────────────
   pgadmin:
     <<: *common
     image: dpage/pgadmin4
@@ -100,9 +98,8 @@ services:
     profiles: ["tools"]
     ports: ["8025:8025", "1025:1025"]
     networks: [backend-net]
-
-  # Profile: monitoring
-  portainer-ce:
+    
+  portainer:
     <<: *common
     image: portainer/portainer-ce:latest
     profiles: ["monitoring"]
@@ -112,18 +109,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
 
-  # Profile: seed
   seeder:
+    <<: *common
     image: node:18-alpine
     profiles: ["seed"]
-    restart: "no" # Перезаписуємо правило з якоря або просто не використовуємо якір тут
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
     networks: [backend-net]
     volumes:
-      - ./apps/backend:/app
-    working_dir: /app
+      - ./apps/backend:/app/apps/backend
+      - /app/node_modules
+    working_dir: /app/apps/backend
     command: node seed.js
     env_file: [.env]
 

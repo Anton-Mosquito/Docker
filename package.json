@@ -8,13 +8,18 @@
     "packages/*"
   ],
   "scripts": {
-    "compose:dev": "docker compose --env-file .env.development --profile dev up --build",
-    "compose:dev:down": "docker compose --env-file .env.development --profile dev down",
+    "compose:dev": "docker compose --env-file .env.development up --build",
+    "compose:dev:down": "docker compose --env-file .env.development down",
     "compose:prod": "docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
-    "compose:prod:down": "docker compose --env-file .env.production --profile prod down",
+    "compose:prod:down": "docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml down",
     "compose:local": "docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build",
+    "compose:debug": "docker compose --env-file .env.development --profile debug up --build",
     "monitor": "docker compose --profile monitoring up -d",
     "seed": "docker compose --profile seed run --rm seeder",
     "tools": "docker compose --profile tools up -d"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-arm64-musl": "^1.1.2",
+    "@rolldown/binding-linux-x64-musl": "^1.1.2"
   }
 }

@@ -26,7 +26,7 @@ function Home() {
 
       <h2>Database Status</h2>
       {dbStatus ? (
-        <div style={{ padding: 12, backgroundColor: dbStatus.status === 'ok' ? '#e6ffe6' : '#ffe6e6', borderRadius: 4 }}>
+        <div style={{ padding: 12, backgroundColor: dbStatus.status === 'ok' ? '#e6ffe6' : '#ffe6e6', borderRadius: 5 }}>
           <strong>Status:</strong> {dbStatus.status}
           {dbStatus.time && <><br /><strong>DB Time:</strong> {new Date(dbStatus.time).toLocaleString()}</>}
           {dbStatus.error && <><br /><strong>Error:</strong> {dbStatus.error}</>}

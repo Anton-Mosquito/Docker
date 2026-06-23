@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "compose:dev": "docker compose --env-file .env.development up --build",
+    "compose:dev": "docker compose --env-file .env.development up --build -d",
     "compose:dev:down": "docker compose --env-file .env.development down",
     "compose:prod": "docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
     "compose:prod:down": "docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml down",

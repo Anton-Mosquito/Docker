@@ -1,7 +1,8 @@
 # production overrides
 services:
   nginx:
-    image: ghcr.io/anton-mosquito/nginx:${VERSION:-latest}
+    # image: ghcr.io/anton-mosquito/nginx:${VERSION:-latest}
+    image: nginx:alpine
     ports: ["80:80", "443:443"]
     restart: unless-stopped
     deploy:

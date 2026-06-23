@@ -10,7 +10,6 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  # 0. Визначаємо, що саме змінилося, і формуємо матрицю
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -34,17 +33,25 @@ jobs:
         run: |
           MATRIX="[]"
           if [[ "${{ steps.filter.outputs.backend }}" == "true" ]]; then
-            MATRIX=$(echo $MATRIX | jq -c '. += [{"service": "backend", "context": ".", "dockerfile": "docker/backend.Dockerfile", "target": "runtime", "build-args": ""}]')
+            MATRIX=$(echo $MATRIX | jq -c '. += [{
+              "service": "backend",
+              "context": ".",
+              "dockerfile": "docker/backend.Dockerfile",
+              "target": "runtime"
+            }]')
           fi
           if [[ "${{ steps.filter.outputs.frontend }}" == "true" ]]; then
-            MATRIX=$(echo $MATRIX | jq -c '. += [{"service": "frontend", "context": ".", "dockerfile": "docker/frontend.Dockerfile", "target": "prod", "build-args": "VITE_API_URL=http://backend:5000"}]')
+            MATRIX=$(echo $MATRIX | jq -c '. += [{
+              "service": "frontend",
+              "context": ".",
+              "dockerfile": "docker/frontend.Dockerfile",
+              "target": "prod"
+            }]')
           fi
+          FINAL=$(jq -c -n --argjson inc "$MATRIX" '{include: $inc}')
+          echo "matrix=$FINAL" >> $GITHUB_OUTPUT
 
-          # Формуємо фінальний JSON в один рядок за допомогою jq -c
-          FINAL_JSON=$(jq -c -n --argjson inc "$MATRIX" '{include: $inc}')
-          echo "matrix=$FINAL_JSON" >> $GITHUB_OUTPUT
-
-  # 1. CI (Lint & Test via Reusable Workflow)
+  # 1. Lint & Test (reusable workflow)
   ci:
     needs: changes
     uses: ./.github/workflows/ci.yml
@@ -57,22 +64,22 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write
+      security-events: write  # для upload-sarif (GitHub Advanced Security)
 
     strategy:
+      fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up QEMU # емулятор для cross-compile
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
@@ -84,48 +91,57 @@ jobs:
         id: owner
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
-      - name: Extract metadata for Docker
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.owner }}/my-fullstack-${{ matrix.service }}
           tags: |
-            type=sha,prefix=,format=short
+            type=sha,prefix=sha-,format=short
             type=ref,event=branch
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
-      - name: Build local image for scanning
+      # Білдимо локально (без push) щоб просканувати до публікації
+      - name: Build image for scanning
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
-          build-args: ${{ matrix.build-args }}
-          load: true
-          tags: local-build-${{ matrix.service }}:latest
+          # FIX: VITE_API_URL береться з GitHub Variables (не з матриці)
+          # Встанови в Settings → Environments → production → Variables
+          build-args: |
+            ${{ matrix.service == 'frontend' && format('VITE_API_URL={0}', vars.VITE_API_URL) || '' }}
+          load: true  # зберегти образ локально для trivy
+          tags: local-scan/${{ matrix.service }}:latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+      # FIX: пінимо версію trivy, @master ламається без попередження
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: "local-build-${{ matrix.service }}:latest"
-          format: "sarif"
-          output: "trivy-results.sarif"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          image-ref: local-scan/${{ matrix.service }}:latest
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"          # падаємо якщо є CRITICAL/HIGH
+          ignore-unfixed: true    # ігноруємо вразливості без патчів
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
 
-      - name: Upload scan results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() # Upload even if vulnerabilities are found
+      # Завантажуємо результати у вкладку Security → Code scanning
+      # Потребує GitHub Advanced Security (є у public repos безкоштовно)
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()  # завантажуємо навіть якщо scan знайшов вразливості
         with:
-          sarif_file: "trivy-results.sarif"
+          sarif_file: trivy-results.sarif
+          category: trivy-${{ matrix.service }}
 
-      - name: Build and push multi-platform
+      # Публікуємо мультиплатформений образ з правильними тегами
+      - name: Build and push multi-platform image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
@@ -133,34 +149,74 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
-          build-args: ${{ matrix.build-args }}
+          build-args: |
+            ${{ matrix.service == 'frontend' && format('VITE_API_URL={0}', vars.VITE_API_URL) || '' }}
           push: true
-          tags: ghcr.io/${{ steps.owner.outputs.owner }}/${{ matrix.service }}:latest
+          # FIX: використовуємо meta.outputs.tags (не хардкодимо :latest)
+          tags: ${{ steps.meta.outputs.tags }}
+          # FIX: передаємо OCI-мітки (автор, версія, репо, коміт)
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # Генерує SBOM і provenance — для supply chain безпеки
+          sbom: true
+          provenance: true
 
-  # 3. Deploy to Staging (Auto)
+  # 3. Auto-deploy на Staging при кожному пуші в main
   deploy-staging:
     needs: docker-build
-    environment: staging
-    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Staging
-        run: |
-          echo "Deploying to staging..."
-          echo "Deploy URL: ${{ secrets.DEPLOY_URL }}"
-          # curl -X POST ${{ secrets.DEPLOY_TOKEN }}
+      - uses: actions/checkout@v4
 
-  # 4. Deploy to Production (Manual Approve)
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/my-fullstack
+            export IMAGE_TAG=sha-${{ github.sha }}
+            docker compose pull
+            docker compose up -d --no-build
+            docker image prune -f 
+
+  # 4. Deploy на Production тільки при release (не на кожен main-коміт)
   deploy-prod:
     needs: deploy-staging
-    environment: production
-    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+    # FIX: прибрали github.ref == 'refs/heads/main' — тільки release → prod
+    if: github.event_name == 'release'
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
+      # GitHub чекає manual approve перед запуском (налаштовується в Environments)
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Production
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/my-fullstack
+            export IMAGE_TAG=${{ github.ref_name }}
+            docker compose pull
+            docker compose up -d --no-build
+            docker image prune -f
+
+      - name: Create deployment summary
         run: |
-          echo "🚀 Deploying to prod..."
-          echo "Deploy URL: ${{ secrets.DEPLOY_URL }}"
-          # curl -X POST ${{ secrets.DEPLOY_TOKEN }}
+          echo "## 🚀 Deployed to Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ vars.PROD_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ github.repository_owner }}/my-fullstack-frontend:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ github.repository_owner }}/my-fullstack-backend:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

@@ -135,7 +135,7 @@ jobs:
       # Потребує GitHub Advanced Security (є у public repos безкоштовно)
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()  # завантажуємо навіть якщо scan знайшов вразливості
+        if: always()
         with:
           sarif_file: trivy-results.sarif
           category: trivy-${{ matrix.service }}

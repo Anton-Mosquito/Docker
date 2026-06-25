@@ -138,28 +138,28 @@ jobs:
           sbom: true
           provenance: true
   # 3. Auto-deploy на Staging при кожному пуші в main
-  deploy-staging:
-    needs: docker-build
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # deploy-staging:
+  #   needs: docker-build
+  #   if: github.ref == 'refs/heads/main'
+  #   environment:
+  #     name: staging
+  #     url: ${{ vars.STAGING_URL }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Deploy to staging via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            cd /opt/my-fullstack
-            export IMAGE_TAG=sha-${{ github.sha }}
-            docker compose pull
-            docker compose up -d --no-build
-            docker image prune -f 
+  #     - name: Deploy to staging via SSH
+  #       uses: appleboy/ssh-action@v1.2.0
+  #       with:
+  #         host: ${{ secrets.STAGING_HOST }}
+  #         username: ${{ secrets.STAGING_USER }}
+  #         key: ${{ secrets.STAGING_SSH_KEY }}
+  #         script: |
+  #           cd /opt/my-fullstack
+  #           export IMAGE_TAG=sha-${{ github.sha }}
+  #           docker compose pull
+  #           docker compose up -d --no-build
+  #           docker image prune -f 
   # ── 3. Deploy на Production тільки при release (не на кожен main-коміт)
   deploy-prod:
     needs: docker-build

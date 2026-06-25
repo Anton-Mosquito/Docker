@@ -64,7 +64,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write  # для upload-sarif (GitHub Advanced Security)
+      security-events: write
 
     strategy:
       fail-fast: false
@@ -103,15 +103,12 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
-      # Білдимо локально (без push) щоб просканувати до публікації
       - name: Build image for scanning
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          target: ${{ matrix.target }}
-          # FIX: VITE_API_URL береться з GitHub Variables (не з матриці)
-          # Встанови в Settings → Environments → production → Variables
+          target: ${{ matrix.target }}`
           build-args: |
             ${{ matrix.service == 'frontend' && format('VITE_API_URL={0}', vars.VITE_API_URL) || '' }}
           load: true  # зберегти образ локально для trivy

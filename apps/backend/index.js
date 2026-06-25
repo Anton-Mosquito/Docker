@@ -34,3 +34,4 @@ app.get("/api/db-test", async (req, res) => {
 
 const port = parseInt(process.env.PORT, 10) || 5000;
 app.listen(port, () => console.log(`API on :${port}`));
+

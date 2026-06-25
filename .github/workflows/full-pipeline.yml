@@ -5,6 +5,12 @@ on:
     branches: [main]
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      force_build_all:
+        description: 'Force build all services (ignore paths-filter)'
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -31,8 +37,9 @@ jobs:
 
       - id: set-matrix
         run: |
+          FORCE="${{ github.event.inputs.force_build_all }}"
           MATRIX="[]"
-          if [[ "${{ steps.filter.outputs.backend }}" == "true" ]]; then
+          if [[ "${{ steps.filter.outputs.backend }}" == "true" || "$FORCE" == "true" ]]; then
             MATRIX=$(echo $MATRIX | jq -c '. += [{
               "service": "backend",
               "context": ".",
@@ -40,7 +47,7 @@ jobs:
               "target": "runtime"
             }]')
           fi
-          if [[ "${{ steps.filter.outputs.frontend }}" == "true" ]]; then
+          if [[ "${{ steps.filter.outputs.frontend }}" == "true" || "$FORCE" == "true" ]]; then
             MATRIX=$(echo $MATRIX | jq -c '. += [{
               "service": "frontend",
               "context": ".",

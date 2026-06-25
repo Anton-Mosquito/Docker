@@ -185,38 +185,71 @@ jobs:
             docker compose pull
             docker compose up -d --no-build
             docker image prune -f 
-
-  # 4. Deploy на Production тільки при release (не на кожен main-коміт)
+  # ── 3. Deploy на Production тільки при release (не на кожен main-коміт)
   deploy-prod:
-    needs: deploy-staging
-    # FIX: прибрали github.ref == 'refs/heads/main' — тільки release → prod
-    if: github.event_name == 'release'
+    needs: docker-build
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
     environment:
       name: production
       url: ${{ vars.PROD_URL }}
-      # GitHub чекає manual approve перед запуском (налаштовується в Environments)
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to production via SSH
+      # Копіюємо compose файл на VM щоразу — так VM завжди має актуальну версію
+      - name: Copy compose file to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          source: docker-compose.vm.yml
+          target: /opt/my-fullstack/
+          strip_components: 0
+
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
+            set -e  # зупиняємось при будь-якій помилці
             cd /opt/my-fullstack
-            export IMAGE_TAG=${{ github.ref_name }}
+
+            # Перейменовуємо якщо треба
+            [ -f docker-compose.vm.yml ] && mv docker-compose.vm.yml docker-compose.yml
+
+            # Встановлюємо тег: для release — версія, для main — sha
+            if [[ "${{ github.event_name }}" == "release" ]]; then
+              export IMAGE_TAG="${{ github.ref_name }}"
+            else
+              export IMAGE_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+            fi
+
+            echo "▶ Deploying IMAGE_TAG=$IMAGE_TAG"
+
+            # Оновлюємо тег у .env
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" .env
+
+            # Тягнемо нові образи (не зупиняємо сервіс до їх завантаження)
             docker compose pull
-            docker compose up -d --no-build
+
+            # Піднімаємо з zero-downtime (compose зупиняє → стартує по одному)
+            docker compose up -d --remove-orphans
+
+            # Чекаємо 10с і перевіряємо що все живе
+            sleep 10
+            docker compose ps
+
+            # Прибираємо старі образи (звільняємо місце на диску)
             docker image prune -f
 
-      - name: Create deployment summary
+            echo "✅ Deploy завершено"
+
+      - name: Summary
         run: |
-          echo "## 🚀 Deployed to Production" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** ${{ vars.PROD_URL }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ github.repository_owner }}/my-fullstack-frontend:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ github.repository_owner }}/my-fullstack-backend:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

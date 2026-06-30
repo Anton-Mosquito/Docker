@@ -98,5 +98,15 @@ RUN apk upgrade --no-cache
 COPY apps/frontend/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
 USER nginx
+RUN mkdir -p /var/cache/nginx/client_temp \
+             /var/cache/nginx/proxy_temp \
+             /var/cache/nginx/fastcgi_temp \
+             /var/cache/nginx/uwsgi_temp \
+             /var/cache/nginx/scgi_temp \
+             /var/run/nginx && \
+    chown -R nginx:nginx /var/cache/nginx /var/run/nginx /var/log/nginx /usr/share/nginx/html && \
+    chown nginx:nginx /etc/nginx/nginx.conf && \
+    touch /var/run/nginx.pid && \
+    chown nginx:nginx /var/run/nginx.pid
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
